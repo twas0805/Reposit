@@ -37,7 +37,7 @@ image::Stack and Heap.jpg[]
 
 .main.cpp
 
-[source,ruby]
+[source,cpp]
 ----
 #include "rccregisters.hpp"
 #include "gpiocregisters.hpp"
