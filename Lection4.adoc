@@ -12,7 +12,7 @@ toc::[]
 
 В данной лекции я узнал, что различные встроенные типы и модификаторы помимо int могут иметь различную длину, например float может иметь длину 24 бит или стандартные 32. Так же узнал, что для размеров типов существует следующее правило:
 
-[source,ruby]
+[source,cpp]
 ----
 1             <= sizeof(char)     <= sizeof(short) <= sizeof(int) <= sizeof(long)
 1             <= sizeof(bool)     <= sizeof(long)
@@ -35,7 +35,7 @@ sizeof(T)     == sizeof(signed T) == sizeof(unsigned T)
 
 static_cast производит преобразование близких типов, например:
 
-[source,ruby]
+[source,cpp]
 ----
 float f = static_cast<float>(8.89);
 float g = 8.89f; 
@@ -45,9 +45,9 @@ float g = 8.89f;
 
 === reinterpret_cast
 
-reinterpret_cast производит преобразование различных типов, преобразование, которых не может произойти даже в неявном виде, адрес в переменную, например:
+reinterpret_cast производит преобразование различных типов, преобразование, которых не может произойти даже в неявном виде, указатель в целое число, например:
 
-[source,ruby]
+[source,cpp]
 ----
 auto ptr = reinterpret_cast<uint32_t *>(0x8000000); 
 ----
@@ -56,18 +56,14 @@ auto ptr = reinterpret_cast<uint32_t *>(0x8000000);
 
 Так же я узнал, как при помощи слова _using_ можно создать свой псевдоним.
 
-[source,ruby]
-----
+[source,cpp]
 using t = std::tuple<int, string, float_32t, tU32>; 
-
 ...
-
 main()
 {
     using float_32t = float;
     float_32t f = 12.9f;
 }
-----
 
 == Выводы
 
