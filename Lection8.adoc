@@ -59,6 +59,22 @@ toc::[]
 
 == Ёлочка
 
+.ipin.h
+
+[source,cpp]
+----
+#ifndef IPIN
+#define IPIN
+
+class IPin
+{
+public:
+  virtual void Toggle() const = 0;
+};
+
+#endif
+----
+
 .pin.h
 
 [source,cpp]
@@ -68,44 +84,64 @@ toc::[]
 
 #include "gpioaregisters.hpp" // for GPIOA
 #include "gpioaregisters.hpp" // for GPIOC
+#include "ipin.h" // for GPIOC
 
 template<typename Port, int pinNumber>
-class Pin
+class Pin : public IPin
 {
 public:
-void Toggle()
+void Toggle() const override
 {
-  Port::ODR::Toggle(1 << pinNumber); // Исключающее-или на порт
+  Port::ODR::Toggle(1 << pinNumber);  
 }
 };
 
 #endif
+----
 
-#ifndef ELOCHKA
-#define ELOCHKA
+.imode.h
 
-template<auto& pin1,auto& pin2,auto& pin3,auto& pin4, int& time>
-class Elochka
+[source,cpp]
+----
+#ifndef IMODE
+#define IMODE
+
+class IMode
 {
 public:
-    void delay(int cycles)
-    {
-      for(int i = 0; i < cycles; ++i)    
-      {   
-        asm volatile("");
-      }    
-    }
-    void Toggle_Elochka()
-    {
-      pin1.Toggle();
-      delay(time); 
-      pin2.Toggle();
-      delay(time); 
-      pin3.Toggle();
-      delay(time); 
-      pin4.Toggle();
-      delay(time); 
-    }
+  virtual void Update() = 0;
+};
+
+#endif
+----
+
+.treemode.h
+
+[source,cpp]
+----
+#ifndef TREEMODE
+#define TREEMODE
+
+#include "gpioaregisters.hpp" // for GPIOA
+#include "gpioaregisters.hpp" // for GPIOC
+#include "imode.h"
+#include <array>
+
+template<auto& ... pins>
+class TreeMode : public IMode
+{
+public:
+void Update() override
+{  
+  leds[i++]->Toggle();
+  if(i == leds.size())
+  {
+    i = 0;
+  }
+}
+private:
+  std::size_t i = 0;
+  std::array<IPin*, sizeof ... (pins)> leds = {static_cast<IPin*> (&pins)...};
 };
 
 #endif
@@ -115,10 +151,11 @@ public:
 
 [source,cpp]
 ----
-include "rccregisters.hpp" // for RCC
+#include "rccregisters.hpp" // for RCC
 #include "gpioaregisters.hpp" // for GPIOA
-#include "gpiocregisters.hpp" // for GPIOÑ
+#include "gpiocregisters.hpp" // for GPION
 #include "pin.h"
+#include "treemode.h"
 
 std::uint32_t SystemCoreClock = 16'000'000U;
 
@@ -140,9 +177,8 @@ Pin<GPIOC, 5> pin1;
 Pin<GPIOC, 8> pin2;
 Pin<GPIOC, 9> pin3;
 Pin<GPIOA, 5> pin4;
-int time = 1000000;
 
-Elochka<pin1, pin2, pin3, pin4, time> el;
+TreeMode<pin1, pin2, pin3, pin4> el; //Создание объекта класса елочка
 
 int main()
 {
@@ -155,7 +191,8 @@ int main()
   
   for(;;)
   {
-    el.Toggle_Elochka(); // Включение елочки
+    el.Update(); // Включение елочки
+    delay(1000000);
   }
   
   return 1;
