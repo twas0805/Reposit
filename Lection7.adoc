@@ -96,7 +96,7 @@ f = f(PLL clock input) × (PLLN / PLLM) / PLLP​
 ----
 #include "rccregisters.hpp" // for RCC
 #include "gpioaregisters.hpp" // for GPIOA
-#include "gpiocregisters.hpp" // for GPIOÑ
+#include "gpiocregisters.hpp" // for GPION
 
 std::uint32_t SystemCoreClock = 16'000'000U;
 
@@ -110,18 +110,20 @@ int __low_level_init(void)
   {
 
   }
-  // Включение ФАПЧ
-  RCC::CR::PLLON::On::Set();
+  
   // Сброс всех битов в 0 на всякий случай
   *reinterpret_cast<std::uint32_t*>(0x40023804) &= 0;
   // Включение тактирования от внутреннего высокочастотного генератора
   RCC::PLLCFGR::PLLSRC::HsiSource::Set();
-  // Операция, при которой PLLP стало равно 2
-  RCC::PLLCFGR::PLLP0::Pllp2::Set();
-  // Операция, при которой PLLM стало равно 32
-  *reinterpret_cast<std::uint32_t*>(0x40023804) |= (1U << 5U);
+  // Операция, при которой PLLP стало равно 8
+  *reinterpret_cast<std::uint32_t*>(0x40023804) |= (1U << 16U);
+  *reinterpret_cast<std::uint32_t*>(0x40023804) |= (1U << 17U);
+  // Операция, при которой PLLM стало равно 8
+  *reinterpret_cast<std::uint32_t*>(0x40023804) |= (1U << 3U);
   // Операция, при которой PLLN стало равно 128
   *reinterpret_cast<std::uint32_t*>(0x40023804) |= (1U << 13U);
+  // Включение ФАПЧ
+  RCC::CR::PLLON::On::Set();
   // Ожидание пока внутренний генератор не будет готов
   while (RCC::CR::PLLRDY::Unclocked::IsSet())
   {
@@ -134,6 +136,7 @@ int __low_level_init(void)
   {
     
   }
+  RCC::CR::HSION::Off::Set();
   RCC::APB2ENR::SYSCFGEN::Enable::Set();
 
   return 1;
