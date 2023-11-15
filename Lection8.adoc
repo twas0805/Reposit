@@ -1,0 +1,209 @@
+:toc: macro
+
+include::Titul_Lection8.adoc[]
+
+toc::[]
+
+== Задачи
+
+Разобрать, что такое порты, какие есть режимы работы портов. Реализовать "ёлочку" на светодиодах, используя порты, через класс.
+
+== Порты
+
+*Порт* – устройство ввода/вывода данных.
+
+Режимы работы портов:
+
+. Плавающий цифровой вход (без подтяжки) (Input floating).
+. Цифровой вход с подтяжкой к 1 (Input pull-up).
+. Цифровой вход с подтяжкой к 0 (Input-pull-down).​
+. Аналоговый (Analog).​
+. Цифровой выход с открытым коллектором с подтяжкой к 1 или к 0 (Output open-drain with pull-up or pull-down capability).
+. Цифровой двухтактный выход с подтяжкой к 1 или к 0 (Output push-pull with pull-up or pull-down capability).
+. Альтернативная функция с открытым коллектором с подтяжкой к 1 или к 0 (​Alternate function push-pull with pull-up or pull-down capability).
+. Альтернативная функция двухтактный выход с подтяжкой к 1 или к 0 (​Alternate function open-drain with pull-up or pull-down capability).
+
+=== Работа в цифровом режиме
+
+Когда порт работает в цифровом режиме, то обычно подразумевается, что порт имеет два состояния 1 или по другому *high* (true) и 0 или *low* (false). Эти сигналы соотвествуют уровню питания микроконтроллера, для STM32F411RE обычно High соотвествует 3–3.3 В, a Low – 0 В.
+
+==== Цифровой вход
+
+Когда порт настроен, как цифровой вход его сопротивление бесконечно, контакт никуда не подключен ни к земле ни к питанию, поэтому ток никуда не течет. Любое напряжение на такой ножке будет интерпретировано, как 1 или 0, в зависимости от уровня напряжения высокого или низкого. В таком случае это называется плавающая ножка и наводка или шум на этой ножке может быть интерпретирован как 1 или 0, в зависимости от уровня шума. Таким образом такая плавающая ножка – не очень хорошо, так как могут генерироваться ложные переходы.
+
+Чтобы избавиться от плавающего сигнала на ножке, обычно её подтягивают к 0 или 1. Обычно эта опция уже есть внутри микроконтроллера и может быть настроена.
+
+==== Цифровой выход
+
+Когда порт настроен, как цифровой выход, им можно управлять. Например, если задано состояние порта High, то порт подключается к питанию, в итоге на ножке порта появляется высокий уровень напряжения. В случае, если задано Low, на ножке порта появляется низкий уровень напряжения.
+
+=== Аналоговый режим работы 
+
+==== Аналоговый вход
+
+Позволяет преобразовывать непрерывный сигнал в дискретное мультибитовое двоичное число в микроконтроллере.
+
+==== Аналоговый выход
+
+Позволяет преобразовывать мультибитовое двоичное число из микроконтроллера в непрерывный сигнал.
+
+=== Регистры портов общего назначения
+
+* *GPIOx_MODER (port mode register)*. Задает режимы работы индивидуально каждого из вывода порта.
+* *GPIOx_OSPEEDR (port output speed register)*. Задает скорость работы порта: 400 кГц, 2 МГц, 10 МГц и 40 Мгц.​
+* *GPIOx_PUPDR (port pull-up/pull-down register)*. Задает подключение подтягивающих резисторов.
+* *GPIOx_IDR (input data register)*. Регистр входных данных, из которого считывается состояние входов порта.​
+* *GPIOx_ODR (output data register)*. Регистр выходных данных. Запись числа в младшие 16 бит, приводит к появлению соответствующих уровней на выводах порта.​
+* *GPIOx_OTYPER (port output type register)*. В режиме выхода или альтернативной функции, соответствующий бит регистра устанавливает тип выхода. ​
+* *GPIOx_BSRR (port bit set/reset register)*. Это регистр побитовой установки/сброса данных на выходных линиях порта.
+
+== Ёлочка
+
+.ipin.h
+
+[source,cpp]
+----
+#ifndef IPIN
+#define IPIN
+
+class IPin
+{
+public:
+  virtual void Toggle() const = 0;
+};
+
+#endif
+----
+
+.pin.h
+
+[source,cpp]
+----
+#ifndef PIN
+#define PIN
+
+#include "gpioaregisters.hpp" // for GPIOA
+#include "gpioaregisters.hpp" // for GPIOC
+#include "ipin.h" // for GPIOC
+
+template<typename Port, int pinNumber>
+class Pin : public IPin
+{
+public:
+void Toggle() const override
+{
+  Port::ODR::Toggle(1 << pinNumber);  
+}
+};
+
+#endif
+----
+
+.imode.h
+
+[source,cpp]
+----
+#ifndef IMODE
+#define IMODE
+
+class IMode
+{
+public:
+  virtual void Update() = 0;
+};
+
+#endif
+----
+
+.treemode.h
+
+[source,cpp]
+----
+#ifndef TREEMODE
+#define TREEMODE
+
+#include "gpioaregisters.hpp" // for GPIOA
+#include "gpioaregisters.hpp" // for GPIOC
+#include "imode.h"
+#include <array>
+
+template<auto& ... pins>
+class TreeMode : public IMode
+{
+public:
+void Update() override
+{  
+  leds[i++]->Toggle();
+  if(i == leds.size())
+  {
+    i = 0;
+  }
+}
+private:
+  std::size_t i = 0;
+  std::array<IPin*, sizeof ... (pins)> leds = {static_cast<IPin*> (&pins)...};
+};
+
+#endif
+----
+
+.main.cpp
+
+[source,cpp]
+----
+#include "rccregisters.hpp" // for RCC
+#include "gpioaregisters.hpp" // for GPIOA
+#include "gpiocregisters.hpp" // for GPION
+#include "pin.h"
+#include "treemode.h"
+
+std::uint32_t SystemCoreClock = 16'000'000U;
+
+extern "C" {
+int __low_level_init(void)
+{
+}
+}
+
+void delay(int cycles)
+{
+  for(int i = 0; i < cycles; ++i)    
+  {   
+    asm volatile("");
+  }    
+}
+
+Pin<GPIOC, 5> pin1;
+Pin<GPIOC, 8> pin2;
+Pin<GPIOC, 9> pin3;
+Pin<GPIOA, 5> pin4;
+
+TreeMode<pin1, pin2, pin3, pin4> el; //Создание объекта класса елочка
+
+int main()
+{
+  RCC::AHB1ENR::GPIOAEN::Enable::Set(); //Подача тактирования на порт A
+  RCC::AHB1ENR::GPIOCEN::Enable::Set(); //Подача тактирования на порт C
+  GPIOA::MODER::MODER5::Output::Set(); //Порт A.5 на вывод
+  GPIOC::MODER::MODER5::Output::Set(); //Порт С.5 на вывод
+  GPIOC::MODER::MODER8::Output::Set(); //Порт С.8 на вывод
+  GPIOC::MODER::MODER9::Output::Set(); //Порт С.9 на вывод
+  
+  for(;;)
+  {
+    el.Update(); // Включение елочки
+    delay(1000000);
+  }
+  
+  return 1;
+}
+----
+
+В результате получилось следующее
+
+.Работа "ёлочки"
+video::Video/Elochka.mov[]
+
+== Выводы
+
+В данной работе было разобрано, что такое порты, какие бывают режимы работы портов, регистры портов общего назначения. По итогу была реализована "ёлочка" на светодиодах с использованием портов и через класс.
