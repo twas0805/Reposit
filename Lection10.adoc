@@ -13,7 +13,7 @@ toc::[]
 UML – унифицированный язык моделирования (Unified Modeling Language) – это система обозначений, которую можно применять для объектно-ориентированного анализа и проектирования.
 
 .UML-диаграмма классов
-image::img/UML-leds.jpg[]
+image::Img/UML-leds.jpg[]
 
 == Код
 
@@ -28,6 +28,7 @@ class IPin
 {
 public:
   virtual void Toggle() const = 0;
+  virtual void Low() const = 0;
 };
 
 #endif
@@ -49,6 +50,10 @@ public:
 void Toggle() const override
 {
   Port::ODR::Toggle(1 << pinNumber);  
+}
+void Low() const override
+{
+  Port::ODR::Write(Port::ODR::Get() & ~(1 << pinNumber));
 }
 };
 
@@ -96,8 +101,10 @@ void Update() override
 
 void Clear() override
 {
-  *reinterpret_cast<uint32_t*>(0x40020814) = 0;
-  *reinterpret_cast<uint32_t*>(0x40020014) = 0;
+  for(auto it: leds)
+  {
+    it->Low();
+  }
 }
 private:
   std::array<IPin*, sizeof ... (pins)> leds = {static_cast<IPin*> (&pins)...};
@@ -131,8 +138,10 @@ void Update() override
 void Clear() override
 {
   i=0;
-  *reinterpret_cast<uint32_t*>(0x40020814) = 0;
-  *reinterpret_cast<uint32_t*>(0x40020014) = 0;
+  for(auto it: leds)
+  {
+    it->Low();
+  }
 }
 private:
   std::size_t i = 0;
@@ -177,8 +186,10 @@ public:
   void Clear() override
   {
     flag = false;
-    *reinterpret_cast<uint32_t*>(0x40020814) = 0;
-    *reinterpret_cast<uint32_t*>(0x40020014) = 0;
+    for(auto it: leds)
+    {
+      it->Low();
+    }
   }
 };
 
@@ -202,21 +213,21 @@ class Garland : public IMode
 public:
 void NextMode()
 {
-  currentMode = modifications[i];
+  pcurrentMode = modifications[i];
+  pcurrentMode->Clear();
   i++;
   if(i == modifications.size()) i = 0;
 }
 void Update()
 {
-  currentMode->Update();
+  pcurrentMode->Update();
 }
 void Clear()
 {
-  currentMode->Clear();
 }
 private:
   std::array<IMode*, sizeof ... (modes)> modifications = {static_cast<IMode*> (&modes)...};
-  IMode* currentMode = modifications[0];
+  IMode* pcurrentMode = modifications[0];
   std::size_t i = 0;
 };
 
@@ -249,19 +260,13 @@ public:
 #include "ibutton.h"
 #include <array>
 
+template<typename Port, int pinNumber>
 class Button : public IButton
 {
 public:
 bool IsPressed() const override
 {
-  if(GPIOC::IDR::IDR13::Get() == 0)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  return ((Port::IDR::Get()&(1 << pinNumber))!=(1 << pinNumber));
 }
 };
 
@@ -297,11 +302,12 @@ Pin<GPIOC, 8> pin2;
 Pin<GPIOC, 9> pin3;
 Pin<GPIOA, 5> pin4;
 
+Button<GPIOC, 13> btn;
+
 AllMode<pin1, pin2, pin3, pin4> all; //Создание объекта класса режим "все"
 TreeMode<pin1, pin2, pin3, pin4> el; //Создание объекта класса режим "елочки"
 ChessMode<pin1, pin2, pin3, pin4> chess; //Создание объекта класса шахматный режим
 Garland<all, el, chess> garland; //Создание объекта класса гирлянда
-Button btn;
 
 int main()
 {
@@ -318,7 +324,6 @@ int main()
     garland.Update();
     if(btn.IsPressed())
     {
-      garland.Clear();
       garland.NextMode();
     }
     delay(1000000);
