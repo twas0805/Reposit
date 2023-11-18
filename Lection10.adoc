@@ -165,12 +165,12 @@ template<auto& ... pins>
 class ChessMode : public IMode
 {
 private:
-  bool flag = false;
+  bool is_even = false;
   std::array<IPin*, sizeof ... (pins)> leds = {static_cast<IPin*> (&pins)...};
 public:
   void Update() override
   {
-    if(!flag)
+    if(!is_even)
     {
       for(int i = 1; i < leds.size(); i+=2)
       {
@@ -181,11 +181,11 @@ public:
     {
       it->Toggle();
     }
-    flag = true;
+    is_even = true;
   }
   void Clear() override
   {
-    flag = false;
+    is_even = false;
     for(auto it: leds)
     {
       it->Low();
