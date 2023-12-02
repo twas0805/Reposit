@@ -60,7 +60,159 @@ toc::[]
 
 . Как только флаг установлен, остановить счетчик, сбросить бит EN в регистре CR1. Сбросить флаг генерации прерывания UIF по событию в регистре SR
 
-== Код моргания светодиодами с использованием задержки в виде TIM5
+== Моргание светодиодами с использованием задержки в виде TIM5
+
+.UML-диаграмма классов, используемых для данного кода
+image::Img/UML for work with TIM5.jpg[]
+
+.ipin.h
+
+[source,cpp]
+----
+#ifndef IPIN
+#define IPIN
+
+class IPin
+{
+public:
+  virtual void Toggle() const = 0;
+  virtual void SetLow() const = 0;
+};
+
+#endif
+----
+
+.pin.h
+
+[source,cpp]
+----
+#ifndef PIN
+#define PIN
+
+#include "ipin.h"
+
+template<typename Port, int pinNumber>
+class Pin : public IPin
+{
+public:
+void Toggle() const override
+{
+  Port::ODR::Toggle(1 << pinNumber);
+}
+void SetLow() const override
+{
+  Port::ODR::Write(Port::ODR::Get() & ~(1 << pinNumber));
+}
+};
+
+#endif
+----
+
+.imode.h
+
+[source,cpp]
+----
+#ifndef IMODE
+#define IMODE
+
+class IMode
+{
+public:
+  virtual void Update() = 0;
+  virtual void Clear() = 0;
+};
+
+#endif
+----
+
+.allmode.h
+
+[source,cpp]
+----
+#ifndef ALLMODE
+#define ALLMODE
+
+#include "imode.h"
+#include <array>
+
+template<auto& ... pins>
+class AllMode : public IMode
+{
+public:
+void Update() override
+{
+  for(auto it: leds)
+  {
+    it->Toggle();
+  }
+}
+
+void Clear() override
+{
+  ClearAll();
+}
+private:
+  std::array<IPin*, sizeof ... (pins)> leds = {static_cast<IPin*> (&pins)...};
+  void ClearAll()
+  {
+    for(auto it: leds)
+    {
+      it->SetLow();
+    }
+  }
+};
+
+#endif
+----
+
+.ibutton.h
+
+[source,cpp]
+----
+#ifndef IBUTTON
+#define IBUTTON
+
+class IButton
+{
+public:
+  virtual bool IsPressed() = 0;
+};
+
+#endif
+----
+
+.button.h
+
+[source,cpp]
+----
+#ifndef BUTTON
+#define BUTTON
+
+#include "ibutton.h"
+#include <array>
+
+template<typename Port, int pinNumber>
+class Button : public IButton
+{
+public:
+bool IsPressed() override
+{
+  if(((Port::IDR::Get()&(1 << pinNumber))==0) && (isSet))
+  {
+    isSet = false;
+  } else if(((Port::IDR::Get()&(1 << pinNumber))==(1 << pinNumber)) && (!isSet))
+  {
+    isSet = true;
+    return true;
+  }
+  return 0;
+}
+private:
+  bool isSet = true;
+};
+
+#endif
+----
 
 .main.c
 
@@ -69,13 +221,12 @@ toc::[]
 #include "rccregisters.hpp" // for RCC
 #include "gpioaregisters.hpp" // for GPIOA
 #include "gpiocregisters.hpp" // for GPIOC
-#include "tim5registers.hpp"
-#include "pin.h"
-#include "allmode.h"
-#include "button.h"
+#include "tim5registers.hpp" // for TIM5
+#include "pin.h" // for pins
+#include "allmode.h" // for all
+#include "button.h" // for button
 
 std::uint32_t SystemCoreClock = 16'000'000U;
-std::uint32_t Tim2 = 1'000'000U;
 
 extern "C" {
 int __low_level_init(void)
@@ -89,15 +240,12 @@ using tMsec = std::uint32_t;
 
 void delay(tMsec period)
 {
-  const auto timerValue = static_cast<uint32_t>(((period)*(Tim2/1000U))-1U);
-  const auto psc = static_cast<uint32_t>(SystemCoreClock/1000000U-1U);
+  const auto psc = static_cast<uint32_t>(SystemCoreClock/1000-1U);
   TIM5::PSC::Write(psc);
   TIM5::CR1::URS::Value1::Set();
-  TIM5::ARR::Write(timerValue);
+  TIM5::ARR::Write(period);
   TIM5::SR::UIF::Set(0);
-  TIM5::CNT::Write(0);
-  int h = TIM5::CNT::Get();
-  
+  TIM5::CNT::Write(0);  
   TIM5::CR1::CEN::Enable::Set();
   while(TIM5::SR::UIF::Get() == 0)
   {
@@ -125,15 +273,15 @@ AllMode<pin1, pin2, pin3, pin4> all; //Создание объекта клас�
   GPIOC::MODER::MODER8::Output::Set(); //Порт С.8 на вывод
   GPIOC::MODER::MODER9::Output::Set(); //Порт С.9 на вывод
 
-  tMsec i = 500U;
+  tMsec period = 500U;
   for(;;)
   { 
     all.Update();
     if(btn.IsPressed())
     {
-      i = (i<tMsec(1000)) ? (i+tMsec(100U)) : tMsec(500U) ;
+      period = (period < tMsec(1000)) ? (period + tMsec(100U)) : tMsec(500U) ;
     }
-    delay(i);
+    delay(period);
   }
   
   return 1;
