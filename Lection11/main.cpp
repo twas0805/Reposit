@@ -1,12 +1,12 @@
-#include "rccregisters.hpp" // for RCC
+#include "rccregisters.hpp"   // for RCC
 #include "gpioaregisters.hpp" // for GPIOA
 #include "gpiocregisters.hpp" // for GPIOC
-#include "pin.h"
-#include "treemode.h"
-#include "chessmode.h"
-#include "allmode.h"
-#include "garland.h"
-#include "button.h"
+#include "pin.h"              // for Pin
+#include "treemode.h"         // for TreeMode
+#include "chessmode.h"        // for ChessMode
+#include "allmode.h"          // for AllMode
+#include "garland.h"          // for Garland
+#include "button.h"           // for Button
 
 std::uint32_t SystemCoreClock = 16'000'000U;
 
@@ -25,20 +25,19 @@ Pin<GPIOA, 5> pin4;
 
 Button<GPIOC, 13> btn;
 
-AllMode<pin1, pin2, pin3, pin4> all; //Создание объекта класса режим "все"
-TreeMode<pin1, pin2, pin3, pin4> el; //Создание объекта класса режим "елочки"
-ChessMode<pin1, pin2, pin3, pin4> chess; //Создание объекта класса шахматный режим
-Garland<all, el, chess> garland; //Создание объекта класса гирлянда
+AllMode<pin1, pin2, pin3, pin4> all; 
+TreeMode<pin1, pin2, pin3, pin4> el;
+ChessMode<pin1, pin2, pin3, pin4> chess; 
+Garland<all, el, chess> garland;
 
 int main()
 {
-  RCC::AHB1ENR::GPIOAEN::Enable::Set(); //Подача тактирования на порт A
-  RCC::AHB1ENR::GPIOCEN::Enable::Set(); //Подача тактирования на порт C
-  //GPIOC::MODER::MODER13::Input::Set(); //Порт C.13 на ввод
-  GPIOA::MODER::MODER5::Output::Set(); //Порт A.5 на вывод
-  GPIOC::MODER::MODER5::Output::Set(); //Порт С.5 на вывод
-  GPIOC::MODER::MODER8::Output::Set(); //Порт С.8 на вывод
-  GPIOC::MODER::MODER9::Output::Set(); //Порт С.9 на вывод
+  RCC::AHB1ENR::GPIOAEN::Enable::Set();
+  RCC::AHB1ENR::GPIOCEN::Enable::Set();
+  GPIOA::MODER::MODER5::Output::Set(); 
+  GPIOC::MODER::MODER5::Output::Set(); 
+  GPIOC::MODER::MODER8::Output::Set(); 
+  GPIOC::MODER::MODER9::Output::Set(); 
 
   for(;;)
   { 
