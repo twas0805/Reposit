@@ -1,0 +1,566 @@
+:toc: macro
+
+include::Titul_Lection13.adoc[]
+
+toc::[]
+
+== Задачи
+
+Написать программу, которая будет переключать все светодиоды с периодом 0,5 секунды. По нажатию кнопки увеличивать период моргания на 0,1 секунды. При достижении периода 1 секунда сбрасывать до 0,5 секунды. Для задания периода использовать прерывания по таймеру TIM5, а по прерываниям для кнопки использовать TIM2.
+
+== Программа
+
+.startupF411RE.cpp
+[source,cpp]
+----
+#pragma language = extended
+#pragma segment = "CSTACK"
+
+#include "timer2config.h"
+#include "timer5config.h"
+
+extern "C" void __iar_program_start( void );
+
+class DummyModule
+{
+  public:
+    static void handler();
+};
+
+using tIntFunct = void(*)();
+//cstat !MISRAC++2008-9-5-1
+using tIntVectItem = union {tIntFunct __fun; void * __ptr;};
+
+// The vector table is normally located at address 0.
+// When debugging in RAM, it can be located in RAM, aligned to at least 2^6.
+// If you need to define interrupt service routines,
+// make a copy of this file and include it in your project.
+// The name "__vector_table" has special meaning for C-SPY:
+// it is where the SP start value is found, and the NVIC vector
+// table register (VTOR) is initialized to this address if != 0.
+
+#pragma location = ".intvec"
+//cstat !MISRAC++2008-0-1-4_b !MISRAC++2008-9-5-1
+extern "C" const tIntVectItem __vector_table[] =
+{
+  { .__ptr = __sfe( "CSTACK" ) },
+  __iar_program_start,
+
+  DummyModule::handler,
+  DummyModule::handler,
+  DummyModule::handler,
+  DummyModule::handler,
+  DummyModule::handler,
+  0,
+  0,
+  0,
+  0,
+  DummyModule::handler,
+  DummyModule::handler,
+  0,
+  DummyModule::handler,
+  DummyModule::handler,
+  //External Interrupts
+  DummyModule::handler,         //Window Watchdog
+  DummyModule::handler,         //PVD through EXTI Line detect/EXTI16
+  DummyModule::handler,         //Tamper and Time Stamp/EXTI21 
+  DummyModule::handler,         //RTC Wakeup/EXTI22 
+  DummyModule::handler,         //FLASH
+  DummyModule::handler,         //RCC
+  DummyModule::handler,         //EXTI Line 0
+  DummyModule::handler,         //EXTI Line 1
+  DummyModule::handler,         //EXTI Line 2
+  DummyModule::handler,         //EXTI Line 3
+  DummyModule::handler,         //EXTI Line 4
+  DummyModule::handler,         //DMA1 Stream 0
+  DummyModule::handler,         //DMA1 Stream 1
+  DummyModule::handler,         //DMA1 Stream 2
+  DummyModule::handler,         //DMA1 Stream 3
+  DummyModule::handler,         //DMA1 Stream 4
+  DummyModule::handler,         //DMA1 Stream 5
+  DummyModule::handler,         //DMA1 Stream 6
+  DummyModule::handler,         //ADC1
+  0,                            //USB High Priority
+  0,                            //USB Low  Priority
+  0,                            //DAC
+  0,                            //COMP through EXTI Line
+  DummyModule::handler,         //EXTI Line 9..5
+  DummyModule::handler,         //TIM9/TIM1 Break interrupt 
+  DummyModule::handler,         //TIM10/TIM1 Update interrupt
+  DummyModule::handler,         //TIM11/TIM1 Trigger/Commutation interrupts
+  DummyModule::handler,		    //TIM1 Capture Compare interrupt
+  tTimer2::handler,             //TIM2  	
+  DummyModule::handler,         //TIM3
+  DummyModule::handler,         //TIM4
+  DummyModule::handler,         //I2C1 Event
+  DummyModule::handler,         //I2C1 Error
+  DummyModule::handler,         //I2C2 Event
+  DummyModule::handler,         //I2C2 Error
+  DummyModule::handler,         //SPI1
+  DummyModule::handler,         //SPI2
+  DummyModule::handler,         //USART1
+  DummyModule::handler,         //USART2
+  0,
+  DummyModule::handler,         //EXTI Line 15..10
+  DummyModule::handler,         //EXTI Line 17 interrupt / RTC Alarms (A and B) through EXTI line interrupt
+  DummyModule::handler,         //EXTI Line 18 interrupt / USB On-The-Go  FS Wakeup through EXTI line interrupt
+  0,				//TIM6
+  0,				//TIM7  f0
+  0,
+  0,
+  DummyModule::handler,         //DMA1 Stream 7 global interrupt fc
+  0,
+  DummyModule::handler,	        //SDIO global interrupt
+  tTimer5::handler,	        //TIM5 global interrupt
+  DummyModule::handler,	        //SPI3 global interrupt
+  0,			        // 110
+  0,
+  0,
+  0,
+  DummyModule::handler,		//DMA2 Stream0 global interrupt 120
+  DummyModule::handler,		//DMA2 Stream1 global interrupt
+  DummyModule::handler,		//DMA2 Stream2 global interrupt
+  DummyModule::handler,		//DMA2 Stream3 global interrupt
+  DummyModule::handler,		//DMA2 Stream4 global interrupt 130
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  DummyModule::handler,		//USB On The Go FS global interrupt, 14C
+  DummyModule::handler,		//DMA2 Stream5 global interrupt
+  DummyModule::handler,		//DMA2 Stream6 global interrupt
+  DummyModule::handler,		//DMA2 Stream7 global interrupt
+  DummyModule::handler,				//USART6 15C
+  DummyModule::handler,         //I2C3 Event
+  DummyModule::handler,         //I2C3 Error 164
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  DummyModule::handler,		//FPU 184
+  0,
+  0,
+  DummyModule::handler,		//SPI 4 global interrupt
+  DummyModule::handler		//SPI 5 global interrupt
+};
+
+void DummyModule::handler()   { for(;;) {} } ;
+
+extern "C" void __cmain( void );
+extern "C" __weak void __iar_init_core( void );
+extern "C" __weak void __iar_init_vfp( void );
+
+#pragma required=__vector_table
+void __iar_program_start( void )
+{
+  __iar_init_core();
+  __iar_init_vfp();
+  __cmain();
+}
+----
+
+.ipin.h
+
+[source,cpp]
+----
+#ifndef IPIN
+#define IPIN
+
+class IPin
+{
+public:
+  virtual void Toggle() const = 0;
+  virtual void SetLow() const = 0;
+};
+
+#endif
+----
+
+.pin.h
+
+[source,cpp]
+----
+#ifndef PIN
+#define PIN
+
+#include "ipin.h"
+
+template<typename Port, int pinNumber>
+class Pin : public IPin
+{
+public:
+void Toggle() const override
+{
+  Port::ODR::Toggle(1 << pinNumber);
+}
+void SetLow() const override
+{
+  Port::ODR::Write(Port::ODR::Get() & ~(1 << pinNumber));
+}
+};
+
+#endif
+----
+
+.imode.h
+
+[source,cpp]
+----
+#ifndef IMODE
+#define IMODE
+
+class IMode
+{
+public:
+  virtual void Update() = 0;
+  virtual void Clear() = 0;
+};
+
+#endif
+----
+
+.allmode.h
+
+[source,cpp]
+----
+#ifndef ALLMODE
+#define ALLMODE
+
+#include "imode.h"
+#include <array>
+
+template<auto& ... pins>
+class AllMode : public IMode
+{
+public:
+void Update() override
+{
+  for(auto it: leds)
+  {
+    it->Toggle();
+  }
+}
+
+void Clear() override
+{
+  ClearAll();
+}
+private:
+  std::array<IPin*, sizeof ... (pins)> leds = {static_cast<IPin*> (&pins)...};
+  void ClearAll()
+  {
+    for(auto it: leds)
+    {
+      it->SetLow();
+    }
+  }
+};
+
+#endif
+----
+
+.garland.h
+
+[source,cpp]
+----
+#ifndef GARLAND
+#define GARLAND
+
+#include "imode.h"
+#include <array>
+
+template<auto& ... modes>
+class Garland
+{
+public:
+void NextMode()
+{
+  pCurrentMode = mModes[i];
+  pCurrentMode->Clear();
+  i++;
+  if(i == mModes.size())
+  {
+    i = 0;
+  }
+}
+void Update()
+{
+  pCurrentMode->Update();
+}
+bool GetFlagInterruption()
+{
+  return flagInterruption;  
+}
+void SetFlagInterruption(bool flag)
+{
+  flagInterruption = flag;
+}
+private:
+  std::array<IMode*, sizeof ... (modes)> mModes = {static_cast<IMode*> (&modes)...};
+  IMode* pCurrentMode = mModes[0];
+  std::size_t i = 0;
+  bool flagInterruption = false;
+};
+
+#endif
+----
+
+.ibutton.h
+
+[source,cpp]
+----
+#ifndef IBUTTON
+#define IBUTTON
+
+class IButton
+{
+public:
+  virtual bool IsPressed() = 0;
+};
+
+#endif
+----
+
+.button.h
+
+[source,cpp]
+----
+#ifndef BUTTON
+#define BUTTON
+
+#include "ibutton.h"
+#include <array>
+
+template<typename Port, int pinNumber>
+class Button : public IButton
+{
+public:
+bool IsPressed() override
+{
+  if(((Port::IDR::Get()&(1 << pinNumber))==0) && (isSet))
+  {
+    isSet = false;
+  } else if(((Port::IDR::Get()&(1 << pinNumber))==(1 << pinNumber)) && (!isSet))
+  {
+    isSet = true;
+    return true;
+  }
+  return 0;
+}
+bool GetFlagInterruption()
+{
+  return flagInterruption;  
+}
+void SetFlagInterruption(bool flag)
+{
+  flagInterruption = flag;
+}
+private:
+  bool isSet = true;
+  bool flagInterruption = false;
+};
+
+#endif
+----
+
+
+.timerconfig.h
+
+[source,cpp]
+----
+#ifndef TIMERCONFIG
+#define TIME5CONFIG
+
+#include "pin.h"
+#include "treemode.h"
+#include "chessmode.h"
+#include "allmode.h"
+#include "garland.h"
+#include "gpioaregisters.hpp"
+#include "gpiocregisters.hpp"
+#include "tim5registers.hpp"
+#include "timer5.h"
+#include "button.h"
+#include "tim2registers.hpp"
+#include "timer2.h"
+
+
+extern Pin<GPIOC, 5> pin1;
+extern Pin<GPIOC, 8> pin2;
+extern Pin<GPIOC, 9> pin3;
+extern Pin<GPIOA, 5> pin4;
+extern Button<GPIOC, 13> btn;
+
+extern AllMode<pin1, pin2, pin3, pin4> all;
+extern TreeMode<pin1, pin2, pin3, pin4> el;
+extern ChessMode<pin1, pin2, pin3, pin4> chess;
+extern Garland<all, el, chess> garland;
+
+using tTimer5 = Timer5<garland>; 
+using tTimer2 = Timer2<btn>; 
+
+#endif
+----
+
+
+.timer2.h
+
+[source,cpp]
+----
+#ifndef TIMER2
+#define TIMER2
+#include "tim2registers.hpp"
+
+template <auto& btn>
+class Timer2
+{
+public:
+  static void handler()
+  {
+    if(TIM2::SR::UIF::Get() == 1 and
+      TIM2::DIER::UIE::Enable::IsSet())
+    {
+      if(btn.IsPressed())
+      {
+        btn.SetFlagInterruption(true);
+      }
+      TIM2::SR::UIF::Set(0);
+    }
+  }
+};
+
+#endif
+----
+
+.timer5.h
+
+[source,cpp]
+----
+#ifndef TIMER5
+#define TIMER5
+#include "tim5registers.hpp"
+
+template <auto& garland>
+class Timer5
+{
+public:
+  static void handler()
+  {
+    if(TIM5::SR::UIF::InterruptPending::IsSet() and
+      TIM5::DIER::UIE::Value1::IsSet())
+    {
+      garland.SetFlagInterruption(true);
+      TIM5::SR::UIF::NoInterruptPending::Set();
+    } 
+  }
+};
+
+#endif
+----
+
+.main.c
+
+[source,cpp]
+----
+#include "rccregisters.hpp" // for RCC
+#include "gpioaregisters.hpp" // for GPIOA
+#include "gpiocregisters.hpp" // for GPIOC
+#include "tim5registers.hpp" // for Tim5
+#include "tim2registers.hpp" // for Tim2
+#include "pin.h" // for Pin
+#include "treemode.h" // for TreeMode
+#include "chessmode.h" // for ChessMode
+#include "allmode.h" // for AllMode
+#include "garland.h" // for Garland
+#include "button.h" // for Button
+#include "nvicregisters.hpp" // for NVIC
+
+using tMsec = std::uint32_t;
+
+const std::uint32_t SystemCoreClock = 16'000'000U;
+
+tMsec period = 500U;
+
+extern "C" {
+int __low_level_init(void)
+{  
+  RCC::APB1ENR::TIM5EN::Enable::Set();
+  RCC::APB1ENR::TIM2EN::Enable::Set();
+
+  NVIC::ISER0::Write(1<<28U); // разрешение глоабльного прерывания Tim2
+  
+  TIM2::PSC::Write(15999U);
+  TIM2::CR1::URS::OverflowEvent::Set();
+  TIM2::ARR::Write(100U);
+  TIM2::SR::UIF::Set(0);
+  TIM2::CNT::Write(0);
+  TIM2::DIER::UIE::Enable::Set();
+
+  NVIC::ISER1::Set(1<<18); // разрешение глоабльного прерывания Tim5
+  
+  TIM5::PSC::Write(15999U);
+  TIM5::CR1::URS::Value1::Set();
+  TIM5::ARR::Write(500U);
+  TIM5::SR::UIF::Set(0);
+  TIM5::CNT::Write(0);
+  TIM5::DIER::UIE::Value1::Set();
+  
+  return 1;
+}
+}
+
+void Tim5Arr(tMsec period)
+{
+  TIM5::ARR::Write(period);
+}
+
+Pin<GPIOC, 5> pin1;
+Pin<GPIOC, 8> pin2;
+Pin<GPIOC, 9> pin3;
+Pin<GPIOA, 5> pin4;
+
+Button<GPIOC, 13> btn;
+
+AllMode<pin1, pin2, pin3, pin4> all; // Создание объекта класса режим "все"
+Garland<all, el, chess> garland; // Создание объекта класса режим "гирлянда"
+int main()
+{
+  RCC::AHB1ENR::GPIOAEN::Enable::Set(); //Подача тактирования на порт A
+  RCC::AHB1ENR::GPIOCEN::Enable::Set(); //Подача тактирования на порт C
+  //GPIOC::MODER::MODER13::Input::Set(); //Порт C.13 на ввод
+  GPIOA::MODER::MODER5::Output::Set(); //Порт A.5 на вывод
+  GPIOC::MODER::MODER5::Output::Set(); //Порт С.5 на вывод
+  GPIOC::MODER::MODER8::Output::Set(); //Порт С.8 на вывод
+  GPIOC::MODER::MODER9::Output::Set(); //Порт С.9 на вывод
+  TIM2::CR1::CEN::Enable::Set();
+  TIM5::CR1::CEN::Enable::Set();
+  for(;;)
+  {
+    if(garland.GetFlagInterruption())
+    {
+      garland.Update();
+      garland.SetFlagInterruption(false);
+    }
+    
+    if(btn.GetFlagInterruption())
+    {
+      period = (period < tMsec(1000)) ? (period + tMsec(100U)) : tMsec(500U) ;
+      btn.SetFlagInterruption(false);
+      Tim5Arr(period);
+    }
+  }
+  return 1;
+}
+----
+
+.Работа кода
+video::Video/Result_NVIC.mp4[]
+
+== Выводы
+
+В ходе данной работы было проведено ознакомление с прерываниями. Была написана программа, которая переключает светодиоды при помощи прерываний и проверяет нажата ли кнопка через прерывание, по нажатию менялся период моргания или поле ARR таймера Tim5, отвечающего за это.
