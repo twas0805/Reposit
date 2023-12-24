@@ -16,8 +16,7 @@ toc::[]
 #pragma language = extended
 #pragma segment = "CSTACK"
 
-#include "timer2config.h"
-#include "timer5config.h"
+#include "timerconfig.h"
 
 extern "C" void __iar_program_start( void );
 
